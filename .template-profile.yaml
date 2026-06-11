@@ -1,0 +1,29 @@
+schema_version: 1
+capabilities:
+  business:
+    saas:
+      enabled: false
+  cloud:
+    aws:
+      enabled: true
+  databases:
+    supabase:
+      enabled: false
+  frameworks:
+    react:
+      enabled: false
+  infrastructure:
+    terraform:
+      enabled: true
+  languages:
+    python:
+      enabled: true
+  platform:
+    domains:
+      enabled: false
+    vps:
+      enabled: false
+dependency_policy:
+  include_dev: true
+  additional_extras: []
+  additional_groups: []
