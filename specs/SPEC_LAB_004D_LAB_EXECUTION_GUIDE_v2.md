@@ -1,72 +1,70 @@
 # SPEC_LAB_004D_LAB_EXECUTION_GUIDE
-# Versión 2.0
+# Version 2.1
 
-> **Changelog v2.0**
-> - HC-01: Se agrega Paso 3 "Publicación de imagen en Amazon ECR" (bloqueante en v1, ahora resuelto).
-> - HC-02 / HC-04: Se agrega advertencia de costo y tiempo estimado por paso.
-> - HC-02: Se documenta que el Service `LoadBalancer` crea un Classic Load Balancer (CLB) en EKS sin AWS LBC.
-> - HC-04: Se ajusta el tiempo total estimado a ~3 horas. Se recomienda al instructor pre-crear el cluster.
-> - HI-04: Se completa el Paso 9 (Rolling Update) con build y push de imagen v2.
-> - hm-03: Se agrega nota sobre estado `NotReady` al ejecutar `kubectl get nodes` inmediatamente después del apply.
-> - hm-07: Se explicita el namespace `default` en los primeros pasos.
-> - IC-03: Se aclara qué prompts de 004E generan artefactos vs cuáles son de comprensión.
-> - IC-07: Se agrega paso de verificación de variables antes del `terraform apply`.
-> - Se agrega Paso 10: Cleanup obligatorio (`terraform destroy`).
+> **Changelog v2.1**
+> - Se hace mas consistente el flujo operativo de extremo a extremo.
+> - Se refuerzan las validaciones humanas previas a `kubectl apply`.
+> - Se eliminan supuestos no documentados entre Terraform, ECR y los manifests.
+> - Se compactan notas de tiempos, estados transitorios y cleanup.
 
 ---
 
 ## Objetivo
 
-Guiar al alumno paso a paso a través del despliegue de una aplicación en Kubernetes utilizando Amazon EKS.
+Guiar al alumno paso a paso en el despliegue y validacion del laboratorio de Kubernetes sobre Amazon EKS.
 
 ---
 
-# Estimación de Tiempo Total
+## Flujo del Laboratorio
+
+El flujo obligatorio es:
+
+1. Prerequisitos y variables
+2. Terraform apply
+3. Configuracion de `kubectl`
+4. Publicacion de imagen en Amazon ECR
+5. Generacion y revision de YAML
+6. Deploy en Kubernetes
+7. Verificacion
+8. Consumo de API
+9. Self-healing
+10. Escalamiento
+11. Rolling update
+12. Cleanup
+
+---
+
+## Estimacion de Tiempo
 
 | Paso | Actividad | Tiempo estimado |
 |---|---|---|
-| 0 | Advertencia de costo y prerequisitos | 2 min |
-| 1 | Aprovisionamiento de infraestructura | 15-20 min |
-| 2 | Configuración de kubectl | 5 min |
-| 3 | Publicación de imagen en ECR | 10 min |
-| 4 | Generación de YAML con Claude Code | 15 min |
-| 5 | Despliegue de recursos | 5 min |
-| 6 | Verificación | 5 min |
-| 7 | Consumo de la API | 5 min |
-| 8 | Self-Healing | 5 min |
+| 0 | Prerequisitos y costo | 2 min |
+| 1 | Infraestructura EKS | 15-20 min |
+| 2 | Kubeconfig | 5 min |
+| 3 | ECR | 10 min |
+| 4 | YAML con Claude Code | 15 min |
+| 5 | Deploy | 5 min |
+| 6 | Verificacion | 5 min |
+| 7 | Consumo de API | 5 min |
+| 8 | Self-healing | 5 min |
 | 9 | Escalamiento | 5 min |
-| 10 | Rolling Update | 10 min |
-| 11 | Cleanup obligatorio | 10 min |
+| 10 | Rolling update | 10 min |
+| 11 | Cleanup | 10 min |
 | **Total** | | **~3 horas** |
-
-> **Recomendación para instructores:** Para respetar el tiempo de sesión de 2 horas, se recomienda pre-crear el cluster EKS ejecutando el Paso 1 antes de la clase. Esto reduce el tiempo de laboratorio activo a aproximadamente 90 minutos.
 
 ---
 
-# Paso 0
+## Paso 0 - Prerequisitos y Costo
 
-## Advertencia de Costo y Prerequisitos
+Prerequisitos:
 
-**Costo estimado del laboratorio:**
-
-| Recurso | Costo/hora |
-|---|---|
-| EKS Cluster | $0.10/hora |
-| 2x EC2 t3.medium | ~$0.08/hora |
-| NAT Gateway | ~$0.045/hora |
-| **Total aproximado** | **~$0.23/hora** |
-
-> ⚠️ **Ejecutar `terraform destroy` al finalizar el laboratorio es OBLIGATORIO.** Un cluster EKS olvidado puede generar costos significativos.
-
-**Prerequisitos verificados:**
-
-- AWS CLI configurado con credenciales válidas
-- Terraform instalado (>= 1.5.0)
-- kubectl instalado
+- AWS CLI configurado
+- Terraform `>= 1.5.0`
+- `kubectl` instalado
 - Docker instalado
-- Acceso a la cuenta AWS del curso
+- acceso a la cuenta AWS del curso
 
-**Variables a configurar antes del Paso 1:**
+Variables a configurar:
 
 ```bash
 export TF_VAR_aws_region="us-east-1"
@@ -75,17 +73,22 @@ export TF_VAR_environment="dev"
 export TF_VAR_cluster_name="invoice-eks-dev"
 ```
 
+Costo estimado:
+
+- EKS Cluster: ~$0.10/hora
+- 2 x `t3.medium`: ~$0.08/hora
+- NAT Gateway: ~$0.045/hora
+- Total: `~$0.23/hora`
+
+`terraform destroy` es obligatorio al finalizar el laboratorio.
+
 ---
 
-# Paso 1
-
-## Aprovisionamiento de Infraestructura
+## Paso 1 - Aprovisionamiento de Infraestructura
 
 Objetivo:
 
-Crear el cluster Kubernetes sobre AWS.
-
-> ⏱️ **Tiempo estimado: 15-20 minutos.** El cluster EKS puede tardar hasta 20 minutos en quedar completamente operativo. Este es el comportamiento normal.
+Crear el cluster EKS y sus dependencias.
 
 Comandos:
 
@@ -95,32 +98,26 @@ terraform plan
 terraform apply
 ```
 
-Resultado esperado:
-
-- Cluster EKS creado.
-- Node Group creado.
-- Outputs disponibles.
-
-Verificar outputs tras el apply:
+Validaciones minimas despues del apply:
 
 ```bash
 terraform output cluster_name
 terraform output cluster_endpoint
 ```
 
-Concepto aprendido:
+Resultado esperado:
 
-Terraform permite automatizar infraestructura Kubernetes, incluyendo la red, los roles IAM y el cluster, mediante código declarativo.
+- cluster EKS creado
+- node group creado
+- outputs disponibles
 
 ---
 
-# Paso 2
-
-## Configuración de kubectl
+## Paso 2 - Configuracion de kubectl
 
 Objetivo:
 
-Conectar el equipo local al cluster.
+Conectar el entorno local con el cluster.
 
 Comando:
 
@@ -130,7 +127,7 @@ aws eks update-kubeconfig \
   --name $TF_VAR_cluster_name
 ```
 
-Validación:
+Validacion:
 
 ```bash
 kubectl get nodes
@@ -138,29 +135,21 @@ kubectl get nodes
 
 Resultado esperado:
 
-Visualización de nodos con estado `Ready`.
+Nodos en estado `Ready`.
 
-> **Nota:** Si los nodos aparecen en estado `NotReady`, esperar 2-3 minutos adicionales y volver a ejecutar `kubectl get nodes`. Los nodos del Node Group pueden tardar unos minutos en completar el proceso de unión al cluster después de que Terraform finaliza.
+Si aparecen como `NotReady`, esperar 2 a 3 minutos y volver a consultar.
 
-> **Namespace:** Todos los recursos de este laboratorio se crean en el namespace `default`. Los recursos del sistema de Kubernetes (como CoreDNS, kube-proxy) se encuentran en el namespace `kube-system` y no deben modificarse.
-
-Concepto aprendido:
-
-kubectl es la herramienta principal de administración de Kubernetes. Se conecta al cluster a través del archivo `~/.kube/config` que el comando anterior configura automáticamente.
+Todos los recursos del laboratorio usan el namespace `default`.
 
 ---
 
-# Paso 3
-
-## Publicación de Imagen en Amazon ECR
+## Paso 3 - Publicacion de Imagen en Amazon ECR
 
 Objetivo:
 
-Publicar la imagen Docker de la aplicación en Amazon ECR para que los nodos del cluster EKS puedan descargarla.
+Publicar la imagen `invoice-processor:v1` en un registry accesible por los nodos EKS.
 
-> **Por qué es necesario este paso:** Los nodos del cluster EKS son instancias EC2 en la nube de AWS. No tienen acceso al entorno local del alumno. La imagen `invoice-processor:v1` que existe en tu máquina es invisible para el cluster. Si se omite este paso y se aplica el Deployment directamente, los Pods quedarán en estado `ImagePullBackOff`.
-
-Paso 3.1 — Crear el repositorio ECR:
+### 3.1 Crear el repositorio
 
 ```bash
 aws ecr create-repository \
@@ -168,13 +157,9 @@ aws ecr create-repository \
   --region $TF_VAR_aws_region
 ```
 
-Anotar el `repositoryUri` del output. Tiene el formato:
+Registrar el `repositoryUri`.
 
-```text
-<account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor
-```
-
-Paso 3.2 — Autenticar Docker contra ECR:
+### 3.2 Autenticar Docker
 
 ```bash
 aws ecr get-login-password --region $TF_VAR_aws_region | \
@@ -182,75 +167,64 @@ aws ecr get-login-password --region $TF_VAR_aws_region | \
   <account_id>.dkr.ecr.<region>.amazonaws.com
 ```
 
-Paso 3.3 — Build de la imagen:
+### 3.3 Build local
 
 ```bash
 docker build -t invoice-processor:v1 .
 ```
 
-Paso 3.4 — Tag de la imagen:
+### 3.4 Tag hacia ECR
 
 ```bash
 docker tag invoice-processor:v1 \
   <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v1
 ```
 
-Paso 3.5 — Push a ECR:
+### 3.5 Push
 
 ```bash
 docker push \
   <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v1
 ```
 
-Resultado esperado:
+Validacion humana:
 
-Imagen `invoice-processor:v1` visible en la consola de Amazon ECR.
-
-Concepto aprendido:
-
-Amazon ECR es el registry privado de AWS. Los nodos EKS tienen acceso automático a ECR gracias a la política `AmazonEC2ContainerRegistryPullOnly` configurada en el Node Group IAM Role. Este es el flujo estándar en pipelines CI/CD reales.
+- la imagen existe en ECR
+- el tag es `v1`
+- el URI completo sera el mismo usado en `deployment.yaml`
 
 ---
 
-# Paso 4
-
-## Generación de YAML mediante Claude Code
-
-Objetivo:
-
-Utilizar IA para acelerar la creación de recursos Kubernetes.
+## Paso 4 - Generacion y Revision de YAML
 
 Archivos esperados:
 
 - `deployment.yaml`
 - `service.yaml`
 
-Prompts a utilizar de SPEC_LAB_004E:
+Prompts a utilizar:
 
-- **Prompt 1:** Genera el `deployment.yaml` ← artefacto desplegable
-- **Prompt 2:** Analiza el `deployment.yaml` generado ← comprensión
-- **Prompt 3:** Genera el `service.yaml` ← artefacto desplegable
-- **Prompt 4:** Analiza el `service.yaml` generado ← comprensión
+- Prompt 1: genera `deployment.yaml`
+- Prompt 2: explica `deployment.yaml`
+- Prompt 3: genera `service.yaml`
+- Prompt 4: explica `service.yaml`
 
-> **Importante:** Antes de ejecutar `kubectl apply` sobre cualquier YAML generado por Claude Code, el alumno debe verificar:
-> - Que el nombre de la aplicación sea `invoice-processor`
-> - Que la imagen apunte al URI correcto de ECR (no a `invoice-processor:v1` local)
-> - Que el puerto del contenedor sea `8000`
-> - Que los labels del Deployment coincidan con el selector del Service
+Checklist obligatorio antes de `kubectl apply`:
 
-Concepto aprendido:
-
-La IA puede generar infraestructura declarativa, pero la revisión humana del manifiesto sigue siendo necesaria antes del despliegue.
+- el nombre de la aplicacion es `invoice-processor`
+- el namespace es `default`
+- la imagen apunta al URI completo de ECR
+- el puerto del contenedor es `8000`
+- `imagePullPolicy: IfNotPresent` esta presente
+- los labels del Deployment coinciden con el selector del Service
+- el Service es `LoadBalancer`
+- `targetPort` es `8000`
+- `port` es `80`
+- replicas iniciales: `2`
 
 ---
 
-# Paso 5
-
-## Despliegue de Recursos
-
-Objetivo:
-
-Crear los recursos Kubernetes.
+## Paso 5 - Despliegue de Recursos
 
 Comandos:
 
@@ -266,19 +240,9 @@ deployment.apps/invoice-processor created
 service/invoice-processor-service created
 ```
 
-Concepto aprendido:
-
-Kubernetes opera mediante declaraciones de estado deseado. `kubectl apply` entrega el manifiesto al API Server, que lo persiste en etcd. Los controladores internos (Deployment Controller, ReplicaSet Controller) se encargan de materializar ese estado creando los Pods reales.
-
 ---
 
-# Paso 6
-
-## Verificación
-
-Objetivo:
-
-Validar recursos creados.
+## Paso 6 - Verificacion
 
 Comandos:
 
@@ -288,47 +252,22 @@ kubectl get pods
 kubectl get services
 ```
 
-Resultado esperado — Deployments:
+Resultados esperados:
 
-```text
-NAME                READY   UP-TO-DATE   AVAILABLE
-invoice-processor   2/2     2            2
-```
+- Deployment con `READY 2/2`
+- 2 Pods en `Running`
+- Service `LoadBalancer`
 
-Resultado esperado — Pods:
+Notas importantes:
 
-```text
-NAME                                 READY   STATUS    RESTARTS
-invoice-processor-xxxx-yyyy          1/1     Running   0
-invoice-processor-xxxx-zzzz          1/1     Running   0
-```
-
-Resultado esperado — Services:
-
-```text
-NAME                        TYPE           CLUSTER-IP      EXTERNAL-IP
-invoice-processor-service   LoadBalancer   10.100.xxx.xxx  <pending o URL>
-```
-
-> **Sobre el tipo de Load Balancer:** En EKS, al aplicar un Service de tipo `LoadBalancer` sin el AWS Load Balancer Controller instalado, se crea automáticamente un **Classic Load Balancer (CLB)** de AWS. El CLB es funcional para este laboratorio. En arquitecturas productivas se recomienda el AWS Load Balancer Controller para obtener un Network Load Balancer (NLB) con características más modernas.
-
-> **Sobre `EXTERNAL-IP <pending>`:** El EXTERNAL-IP puede tardar entre 2 y 5 minutos en asignarse mientras AWS aprovisiona el Classic Load Balancer. Volver a ejecutar `kubectl get services` hasta que aparezca la URL.
-
-Concepto aprendido:
-
-Inspección básica de recursos Kubernetes. La columna `READY` del Deployment muestra cuántos Pods están listos vs. el total deseado.
+- `EXTERNAL-IP` puede aparecer como `<pending>` durante 2 a 5 minutos
+- en este escenario EKS crea un **Classic Load Balancer**
 
 ---
 
-# Paso 7
+## Paso 7 - Consumo de la API
 
-## Consumo de la API
-
-Objetivo:
-
-Validar acceso a la aplicación.
-
-Obtener el EXTERNAL-IP:
+Obtener el `EXTERNAL-IP` o hostname del Service:
 
 ```bash
 kubectl get services
@@ -340,7 +279,7 @@ Consumir la API:
 curl http://<EXTERNAL-IP>
 ```
 
-Resultado esperado:
+Respuesta esperada:
 
 ```json
 {
@@ -350,55 +289,29 @@ Resultado esperado:
 }
 ```
 
-Concepto aprendido:
-
-Los usuarios consumen el Service (que tiene un IP/hostname estable), no los Pods directamente. Los Pods pueden cambiar de IP o ser reemplazados, pero el Service siempre mantiene el mismo punto de acceso.
-
 ---
 
-# Paso 8
+## Paso 8 - Self-Healing
 
-## Self-Healing
-
-Objetivo:
-
-Demostrar recuperación automática.
-
-Obtener el nombre de uno de los Pods:
+Eliminar un Pod:
 
 ```bash
 kubectl get pods
-```
-
-Eliminar el Pod:
-
-```bash
 kubectl delete pod <POD_NAME>
-```
-
-Validar recuperación:
-
-```bash
 kubectl get pods
 ```
 
 Resultado esperado:
 
-Un nuevo Pod creado automáticamente. El Pod eliminado desaparece y es reemplazado por uno nuevo con un nombre diferente.
+Un nuevo Pod reemplaza automaticamente al Pod eliminado.
 
-Concepto aprendido:
+Concepto clave:
 
-El **ReplicaSet** (creado internamente por el Deployment) monitorea continuamente que la cantidad de Pods en ejecución coincida con el número de réplicas deseado. Al detectar que un Pod fue eliminado, el ReplicaSet Controller crea inmediatamente un Pod de reemplazo para restaurar el estado deseado. Este mecanismo se denomina **Self-Healing**.
+El ReplicaSet, administrado por el Deployment, detecta la disminucion de replicas y recrea el Pod faltante.
 
 ---
 
-# Paso 9
-
-## Escalamiento
-
-Objetivo:
-
-Incrementar capacidad.
+## Paso 9 - Escalamiento
 
 Modificar en `deployment.yaml`:
 
@@ -426,79 +339,54 @@ kubectl get pods
 
 Resultado esperado:
 
-5 Pods ejecutándose.
-
-Concepto aprendido:
-
-El escalamiento horizontal en Kubernetes consiste en aumentar el número de réplicas en el Deployment. Kubernetes crea los Pods adicionales y el Service distribuye el tráfico entre todos los Pods disponibles automáticamente.
+5 Pods en ejecucion.
 
 ---
 
-# Paso 10
+## Paso 10 - Rolling Update
 
-## Rolling Update
+### 10.1 Preparar imagen v2
 
-Objetivo:
+Cambiar el valor visible de `version` de `"1.0"` a `"2.0"` en la aplicacion.
 
-Actualizar la aplicación de v1 a v2 sin downtime.
-
-### Paso 10.1 — Preparar la imagen v2
-
-Modificar el código fuente de la aplicación: cambiar el valor de `version` de `"1.0"` a `"2.0"` en el endpoint `GET /`.
-
-Build de la imagen v2:
+Build:
 
 ```bash
 docker build -t invoice-processor:v2 .
 ```
 
-Tag con ECR:
+Tag:
 
 ```bash
 docker tag invoice-processor:v2 \
   <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v2
 ```
 
-Push a ECR:
+Push:
 
 ```bash
 docker push \
   <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v2
 ```
 
-### Paso 10.2 — Actualizar el Deployment
+### 10.2 Actualizar el Deployment
 
-Modificar en `deployment.yaml`:
-
-```yaml
-image: <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v1
-```
-
-por:
-
-```yaml
-image: <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v2
-```
+Cambiar la imagen en `deployment.yaml` de `v1` a `v2`.
 
 Aplicar:
 
 ```bash
 kubectl apply -f deployment.yaml
-```
-
-Monitorear el rollout:
-
-```bash
 kubectl rollout status deployment invoice-processor
 ```
 
-### Paso 10.3 — Verificar el resultado
+### 10.3 Verificar
 
 ```bash
 curl http://<EXTERNAL-IP>
 ```
 
-Resultado esperado:
+Respuesta esperada:
 
 ```json
 {
@@ -508,38 +396,24 @@ Resultado esperado:
 }
 ```
 
-Concepto aprendido:
-
-Kubernetes reemplaza los Pods con la nueva imagen de forma progresiva (por defecto: 1 Pod a la vez), garantizando que siempre haya Pods disponibles para servir tráfico durante la actualización. Este mecanismo se denomina **Rolling Update**.
-
 ---
 
-# Paso 11
+## Paso 11 - Cleanup
 
-## Cleanup — Destruir la Infraestructura
-
-Objetivo:
-
-Eliminar todos los recursos AWS creados durante el laboratorio para evitar costos innecesarios.
-
-> ⚠️ **Este paso es OBLIGATORIO.** El cluster EKS, los nodos EC2 y el NAT Gateway generan costos por hora. No ejecutar este paso puede resultar en cargos significativos en la cuenta AWS.
-
-Paso 11.1 — Eliminar los recursos Kubernetes (para que AWS limpie el Load Balancer):
+### 11.1 Eliminar recursos Kubernetes
 
 ```bash
 kubectl delete -f service.yaml
 kubectl delete -f deployment.yaml
 ```
 
-> **Por qué eliminar primero los recursos Kubernetes:** El Service de tipo `LoadBalancer` crea un Classic Load Balancer en AWS. Si se destruye la infraestructura Terraform sin eliminar primero el Service, el CLB puede quedar como recurso huérfano en la cuenta AWS y seguir generando costo.
+Esto evita dejar un Load Balancer huerfano en AWS.
 
-Paso 11.2 — Destruir la infraestructura Terraform:
+### 11.2 Destruir infraestructura Terraform
 
 ```bash
 terraform destroy
 ```
-
-Confirmar con `yes`.
 
 Resultado esperado:
 
@@ -549,16 +423,14 @@ Destroy complete! Resources: XX destroyed.
 
 ---
 
-# Resultado Final
+## Criterio de Exito
 
-Al finalizar el laboratorio, el alumno habrá:
+El alumno habra completado exitosamente el laboratorio si logra:
 
-1. Publicado una imagen de contenedor en Amazon ECR.
-2. Desplegado una aplicación en Amazon EKS usando manifiestos YAML generados con Claude Code.
-3. Consumido la API a través de un Load Balancer aprovisionado automáticamente por Kubernetes.
-4. Observado el Self-Healing ejecutado por el ReplicaSet.
-5. Escalado la aplicación horizontalmente.
-6. Ejecutado un Rolling Update sin downtime de v1 a v2.
-7. Destruido la infraestructura de forma ordenada.
-
-Comprendiendo los componentes fundamentales de Kubernetes desde una perspectiva práctica en el ecosistema AWS.
+1. publicar la imagen en ECR
+2. desplegar la aplicacion en EKS
+3. consumir la API externamente
+4. observar self-healing
+5. escalar a 5 Pods
+6. ejecutar un rolling update visible de `v1` a `v2`
+7. destruir ordenadamente la infraestructura

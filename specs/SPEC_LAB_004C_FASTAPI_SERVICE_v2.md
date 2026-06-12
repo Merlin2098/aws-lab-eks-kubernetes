@@ -1,46 +1,46 @@
 # SPEC_LAB_004C_FASTAPI_SERVICE
-# Versión 2.0
+# Version 2.1
 
-> **Changelog v2.0**
-> - HC-01 / IC-02: Se agrega sección de publicación en Amazon ECR. La imagen debe estar en un registry accesible antes de ser usada por EKS.
-> - HI-04: Se define explícitamente la diferencia entre v1 y v2 para el Rolling Update.
-> - hm-02: Se especifica `--no-cache-dir` en el Dockerfile para imágenes más limpias.
-> - R-06 (parcial): Se agrega endpoint `GET /health` dedicado para uso como probe de Kubernetes.
-> - hm-01: Se agrega nota explicativa sobre la relación entre `port` y `targetPort`.
+> **Changelog v2.1**
+> - Se simplifica la especificacion del servicio FastAPI.
+> - Se fijan sin ambiguedad endpoints, payloads y diferencia entre `v1` y `v2`.
+> - Se compactan los requisitos de Dockerizacion.
+> - Se refuerza que el servicio es stateless y pedagogicamente minimo.
 
 ---
 
 ## Objetivo
 
-Crear una API mínima que permita visualizar el comportamiento de Kubernetes.
+Definir una API minima que permita observar de forma clara el comportamiento de Kubernetes sin introducir complejidad innecesaria de backend.
 
-La API debe ser simple para evitar distraer al alumno con conceptos de desarrollo backend.
+La aplicacion debe ser:
+
+- pequena
+- stateless
+- facil de contenerizar
+- observable mediante respuestas JSON simples
 
 ---
 
-# Tecnología
+## Tecnologia
 
 - Python 3.x
-
 - FastAPI
-
 - Uvicorn
 
 ---
 
-# Nombre de la Aplicación
+## Nombre de la Aplicacion
 
-invoice-processor
-
----
-
-# Endpoint Principal
-
-GET /
+`invoice-processor`
 
 ---
 
-# Respuesta Esperada — Versión 1
+## Endpoints Obligatorios
+
+### GET /
+
+Respuesta esperada en v1:
 
 ```json
 {
@@ -50,13 +50,19 @@ GET /
 }
 ```
 
----
+Respuesta esperada en v2:
 
-# Endpoint de Versión
+```json
+{
+  "service": "invoice-processor",
+  "version": "2.0",
+  "status": "healthy"
+}
+```
 
-GET /version
+### GET /version
 
-Respuesta:
+Respuesta esperada en v1:
 
 ```json
 {
@@ -64,13 +70,17 @@ Respuesta:
 }
 ```
 
----
+Respuesta esperada en v2:
 
-# Endpoint de Health
+```json
+{
+  "version": "2.0"
+}
+```
 
-GET /health
+### GET /health
 
-Respuesta:
+Respuesta esperada:
 
 ```json
 {
@@ -78,134 +88,82 @@ Respuesta:
 }
 ```
 
-> **Por qué agregar este endpoint:** En Kubernetes es una buena práctica exponer un endpoint dedicado para health checks, separado del endpoint de negocio. Este endpoint puede utilizarse como `livenessProbe` y `readinessProbe` en el manifiesto del Deployment. Para este laboratorio introductorio no se configuran probes, pero el endpoint se incluye para demostrar el patrón correcto.
+Este endpoint existe para ilustrar el patron correcto de health check separado del endpoint principal.
 
 ---
 
-# Definición de Versiones
+## Versiones del Laboratorio
 
-## Versión 1 (invoice-processor:v1)
+### Version 1
 
-Campo `version` en la respuesta del endpoint GET /:
+- imagen: `invoice-processor:v1`
+- valor visible del campo `version`: `"1.0"`
+- uso: deploy inicial, self-healing y escalamiento
 
-```json
-"version": "1.0"
-```
+### Version 2
 
-Utilizada en:
-- Deploy inicial
-- Demostraciones de Self-Healing
-- Escalamiento
+- imagen: `invoice-processor:v2`
+- valor visible del campo `version`: `"2.0"`
+- uso: rolling update
 
-## Versión 2 (invoice-processor:v2)
-
-Campo `version` en la respuesta del endpoint GET /:
-
-```json
-"version": "2.0"
-```
-
-Cambio realizado:
-- Modificar la constante `VERSION` en el código fuente de `"1.0"` a `"2.0"`.
-
-Utilizada en:
-- Demostración de Rolling Update
-
-> **Propósito pedagógico:** El cambio de versión entre v1 y v2 es observable directamente en el campo `version` de la respuesta JSON. Esto permite al alumno verificar de forma concreta que Kubernetes actualizó los Pods con la nueva imagen.
+La diferencia entre v1 y v2 debe limitarse al valor del campo `version`.
 
 ---
 
-# Dockerización
+## Requisitos Minimos de Dockerizacion
 
-La aplicación deberá ejecutarse mediante Docker.
+Se requieren estos artefactos:
 
-Se requiere:
+- `Dockerfile`
+- archivo de dependencias Python
 
-- Dockerfile
-- requirements.txt
+El `Dockerfile` debe:
 
-## Requisitos del Dockerfile
+- usar una imagen base oficial `python:slim`
+- instalar dependencias con `--no-cache-dir`
+- exponer el puerto `8000`
+- ejecutar Uvicorn escuchando en `0.0.0.0`
 
-- Utilizar imagen base oficial Python slim para minimizar tamaño.
-- Instalar dependencias con `--no-cache-dir` para reducir el tamaño de la imagen.
-- Exponer el puerto 8000.
-- Configurar Uvicorn para escuchar en `0.0.0.0` (todas las interfaces de red del contenedor).
+Puerto interno obligatorio del contenedor:
+
+`8000`
 
 ---
 
-# Imagen Docker
+## Imagen en Amazon ECR
 
-Convención de nombres:
+La imagen debe estar publicada en Amazon ECR antes de aplicar el Deployment.
 
-```text
-invoice-processor:v1   ← versión inicial
-invoice-processor:v2   ← versión del Rolling Update
-```
-
-Nombre en Amazon ECR:
+Formato esperado:
 
 ```text
 <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v1
 <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v2
 ```
 
----
-
-# Publicación en Amazon ECR
-
-La imagen debe estar disponible en Amazon ECR antes de ejecutar `kubectl apply`.
-
-Los nodos del cluster EKS son instancias EC2 en AWS y no tienen acceso al entorno local del alumno. Una imagen que solo existe en la máquina local causará un error `ImagePullBackOff` al intentar ejecutar el Pod.
-
-Proceso requerido:
-
-1. Crear repositorio ECR: `invoice-processor`
-2. Autenticar Docker contra ECR
-3. Build de la imagen local
-4. Tag de la imagen con la URL de ECR
-5. Push a ECR
-
-> **Prerequisito:** El Node Group IAM Role debe tener la política `AmazonEC2ContainerRegistryPullOnly` para que los nodos puedan hacer pull de imágenes desde ECR. Esta política está incluida en la especificación SPEC_LAB_004B v2.
+Si se usa una imagen que solo existe localmente, los Pods no podran arrancar y Kubernetes mostrara errores como `ImagePullBackOff`.
 
 ---
 
-# Relación de Puertos
+## Relacion de Puertos
 
-| Nivel | Puerto | Descripción |
+| Nivel | Puerto | Descripcion |
 |---|---|---|
-| Contenedor | 8000 | Puerto donde Uvicorn escucha dentro del Pod |
-| Kubernetes Service (targetPort) | 8000 | Puerto al que el Service envía el tráfico |
-| Kubernetes Service (port) | 80 | Puerto externo expuesto por el Service |
-| Load Balancer | 80 | Puerto público accesible desde internet |
-
-> **Nota pedagógica:** El alumno accede a la API por el puerto 80 (sin necesidad de especificar el puerto en la URL), mientras que internamente la aplicación sigue usando el puerto 8000. Esta separación es una de las funciones clave de un Kubernetes Service.
+| Contenedor | 8000 | Puerto donde escucha Uvicorn dentro del Pod |
+| Service targetPort | 8000 | Puerto interno al que el Service envia trafico |
+| Service port | 80 | Puerto expuesto por el Service |
+| Load Balancer | 80 | Puerto publico accesible por el alumno |
 
 ---
 
-# Objetivo Pedagógico
-
-Permitir demostrar:
-
-- Deploy inicial.
-
-- Service Discovery.
-
-- Escalamiento.
-
-- Rolling Update con cambio observable (v1 → v2).
-
----
-
-# Consideraciones
+## Restricciones del Servicio
 
 No utilizar:
 
-- Base de datos.
+- base de datos
+- persistencia
+- autenticacion
+- variables sensibles
+- integraciones externas
 
-- Variables sensibles.
-
-- Autenticación.
-
-- Integraciones externas.
-
-La aplicación debe ser completamente stateless.
+El servicio debe permanecer completamente stateless y orientado solo a fines didacticos.

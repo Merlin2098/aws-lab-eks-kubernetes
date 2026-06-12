@@ -1,55 +1,108 @@
 # SPEC_LAB_004A_KUBERNETES_USE_CASE
-# Versión 2.0
+# Version 2.1
 
-> **Changelog v2.0**
-> - HC-01: Se agrega nota de alcance indicando que la imagen requiere publicarse en Amazon ECR.
-> - HC-02 / IC-01: Se corrige el diagrama de arquitectura para reflejar que el Load Balancer es creado dinámicamente por Kubernetes, y se aclara el tipo de LB resultante (CLB).
-> - HI-05: Se agrega ReplicaSet como objetivo de aprendizaje secundario y concepto del glosario.
-> - hm-07: Se explicita el uso del namespace `default`.
-
----
-
-## Objetivo
-
-Introducir al alumno en Kubernetes mediante el despliegue de una API sencilla sobre Amazon EKS.
-
-El laboratorio busca demostrar cómo Kubernetes administra aplicaciones contenerizadas utilizando Pods, Deployments, ReplicaSets y Services.
+> **Changelog v2.1**
+> - Se alinea el caso de uso con el resto de los specs 004B-004E.
+> - Se separan con mayor claridad el objetivo tecnico, el objetivo pedagogico y el alcance.
+> - Se refuerza la cadena `Service -> Deployment -> ReplicaSet -> Pods`.
+> - Se mantienen constantes funcionales del laboratorio: `invoice-processor`, namespace `default`, puerto `8000`, Service en `80`, imagen en Amazon ECR.
 
 ---
 
-# Caso de Negocio
+## Objetivo Tecnico
 
-Una empresa de procesamiento de facturas desea exponer una API interna que permita validar el estado de salud de su plataforma.
+Desplegar una API minima sobre Amazon EKS para demostrar como Kubernetes ejecuta, expone y administra aplicaciones contenerizadas.
 
-La aplicación debe:
+La aplicacion del laboratorio se llama:
 
-- Ejecutarse dentro de Kubernetes.
+`invoice-processor`
 
-- Estar disponible externamente.
-
-- Poder escalar horizontalmente.
-
-- Recuperarse automáticamente ante fallos.
+La imagen del contenedor debe publicarse en Amazon ECR antes del despliegue en Kubernetes.
 
 ---
 
-# Solución Propuesta
+## Objetivo Pedagogico
 
-Se desplegará una API FastAPI denominada:
+Al finalizar el laboratorio, el alumno debe comprender:
 
-invoice-processor
-
-La API responderá información básica de estado.
-
-La imagen del contenedor será publicada en Amazon ECR y consumida directamente por los nodos del cluster EKS.
+- Que es un Pod
+- Que es un ReplicaSet
+- Que es un Deployment
+- Que es un Service
+- Como Kubernetes mantiene el estado deseado
+- Como Kubernetes recupera Pods eliminados
+- Como Kubernetes escala horizontalmente
+- Como Kubernetes actualiza una aplicacion sin downtime visible
+- Por que ECR es necesario como registry central para EKS
 
 ---
 
-# Endpoint
+## Caso de Negocio
 
-GET /
+Una empresa de procesamiento de facturas desea exponer una API interna para validar rapidamente el estado de salud de su plataforma.
 
-Respuesta esperada:
+La aplicacion debe:
+
+- Ejecutarse dentro de Kubernetes
+- Estar disponible externamente
+- Poder escalar horizontalmente
+- Recuperarse automaticamente ante fallos
+
+---
+
+## Solucion Propuesta
+
+Se desplegara una API FastAPI minima llamada `invoice-processor`.
+
+La aplicacion:
+
+- se ejecuta en Pods
+- es administrada por un Deployment
+- mantiene replicas mediante un ReplicaSet
+- se expone mediante un Service de tipo `LoadBalancer`
+- usa una imagen almacenada en Amazon ECR
+
+---
+
+## Flujo Arquitectonico
+
+```text
+Usuario
+  ->
+AWS Classic Load Balancer
+(creado automaticamente por Kubernetes al aplicar el Service)
+  ->
+Kubernetes Service (LoadBalancer)
+  ->
+Deployment
+  ->
+ReplicaSet
+  ->
+Pods
+  ->
+Contenedor FastAPI
+(imagen almacenada en Amazon ECR)
+```
+
+### Explicacion de la Cadena
+
+- El `Service` es el punto de acceso estable para el trafico.
+- El `Deployment` define el estado deseado de la aplicacion.
+- El `Deployment` crea y administra internamente un `ReplicaSet`.
+- El `ReplicaSet` garantiza que exista la cantidad deseada de Pods.
+- Los `Pods` ejecutan el contenedor real de `invoice-processor`.
+
+> **Nota tecnica:** En EKS, cuando se crea un Service de tipo `LoadBalancer` sin instalar el AWS Load Balancer Controller, AWS aprovisiona automaticamente un **Classic Load Balancer (CLB)**. Esto es suficiente para un laboratorio introductorio. En escenarios productivos se prefiere el AWS Load Balancer Controller.
+
+---
+
+## API del Laboratorio
+
+Endpoint principal:
+
+`GET /`
+
+Respuesta esperada en v1:
 
 ```json
 {
@@ -61,89 +114,48 @@ Respuesta esperada:
 
 ---
 
-# Objetivos de Aprendizaje
+## Namespace
 
-El alumno deberá comprender:
+Todos los recursos Kubernetes del laboratorio se crean en el namespace `default`.
 
-- Qué es un Pod.
-
-- Qué es un ReplicaSet y por qué es responsable del Self-Healing.
-
-- Qué es un Deployment y cómo administra ReplicaSets.
-
-- Qué es un Service.
-
-- Cómo Kubernetes mantiene el estado deseado.
-
-- Cómo Kubernetes expone aplicaciones.
-
-- Cómo Kubernetes escala aplicaciones.
-
-- Cómo Amazon ECR almacena y distribuye imágenes de contenedor.
+No se deben modificar recursos del namespace `kube-system`.
 
 ---
 
-# Arquitectura
-
-```text
-Usuario
-  ↓
-AWS Classic Load Balancer
-(creado automáticamente por Kubernetes al aplicar el Service)
-  ↓
-Kubernetes Service (tipo LoadBalancer)
-  ↓
-Deployment
-  ↓
-ReplicaSet
-(administrado internamente por el Deployment)
-  ↓
-Pods
-  ↓
-FastAPI Container
-(imagen almacenada en Amazon ECR)
-```
-
-> **Nota técnica:** En EKS, cuando se aplica un Service de tipo `LoadBalancer` sin el AWS Load Balancer Controller instalado, se crea automáticamente un **Classic Load Balancer (CLB)**. Esto es funcional para este laboratorio introductorio. En entornos productivos se recomienda el **AWS Load Balancer Controller** para obtener un Network Load Balancer (NLB) con características modernas.
-
----
-
-# Namespace
-
-Todos los recursos de Kubernetes de este laboratorio se crean en el namespace **default**.
-
-El namespace `default` es el espacio de nombres estándar para cargas de trabajo en clusters nuevos. Los recursos del sistema de Kubernetes residen en el namespace `kube-system`.
-
----
-
-# Alcance
+## Alcance
 
 Incluido:
 
-- Publicación de imagen en Amazon ECR.
-
-- Deploy inicial.
-
-- Consumo de API.
-
-- Self-Healing (ejecutado internamente por el ReplicaSet).
-
-- Escalamiento.
-
-- Rolling Update con imagen v2.
+- Publicacion de la imagen en Amazon ECR
+- Aprovisionamiento de infraestructura minima para EKS
+- Deploy inicial
+- Consumo de API mediante `Service` tipo `LoadBalancer`
+- Self-healing mediante ReplicaSet
+- Escalamiento horizontal
+- Rolling update de `v1` a `v2`
 
 No incluido:
 
-- Base de datos.
+- Base de datos
+- Persistencia
+- Ingress
+- CI/CD
+- Observabilidad avanzada
+- Seguridad avanzada
+- AWS Load Balancer Controller
 
-- Persistencia.
+---
 
-- Ingress.
+## Versiones del Laboratorio
 
-- CI/CD.
+### Version 1
 
-- Observabilidad.
+- Tag de imagen: `invoice-processor:v1`
+- Campo `version` en la respuesta: `"1.0"`
 
-- Seguridad avanzada.
+### Version 2
 
-- AWS Load Balancer Controller.
+- Tag de imagen: `invoice-processor:v2`
+- Campo `version` en la respuesta: `"2.0"`
+
+El unico cambio funcional entre v1 y v2 es el valor visible del campo `version`, para que el rolling update sea comprobable de forma sencilla.
