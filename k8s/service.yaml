@@ -1,0 +1,17 @@
+# Service para invoice-processor.
+# Expone los Pods del Deployment mediante un Load Balancer de AWS,
+# balanceando el trafico entrante entre todas las replicas saludables.
+apiVersion: v1
+kind: Service
+metadata:
+  name: invoice-processor-service
+  namespace: default
+spec:
+  type: LoadBalancer
+  # selector debe coincidir con los labels del template del Deployment
+  # para que el Service descubra los Pods correctos.
+  selector:
+    app: invoice-processor
+  ports:
+    - port: 80
+      targetPort: 8000

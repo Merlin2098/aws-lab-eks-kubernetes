@@ -20,7 +20,7 @@
 terraform {
   backend "s3" {
     bucket       = "REPLACE-WITH-STATE-BUCKET-NAME"
-    key          = "terraform/REPLACE-WITH-PROJECT/REPLACE-WITH-ENV/terraform.tfstate"
+    key          = "lab-004/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true
     use_lockfile = true

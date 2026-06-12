@@ -1,34 +1,39 @@
-output "artifact_bucket_name" {
-  description = "S3 bucket used for packaged runtime artifacts."
-  value       = aws_s3_bucket.artifacts.bucket
+output "cluster_name" {
+  description = "Name of the EKS cluster."
+  value       = module.eks.cluster_name
 }
 
-output "artifact_bundle_s3_uri" {
-  description = "S3 URI of the packaged runtime artifact."
-  value       = "s3://${aws_s3_bucket.artifacts.bucket}/${aws_s3_object.artifact_bundle.key}"
+output "cluster_endpoint" {
+  description = "Endpoint URL of the EKS cluster API server."
+  value       = module.eks.cluster_endpoint
 }
 
-output "data_job_execution_role_arn" {
-  description = "IAM role ARN for Glue or other batch data jobs."
-  value       = aws_iam_role.data_job_execution.arn
+output "cluster_ca_certificate" {
+  description = "Base64-encoded certificate authority data for the EKS cluster."
+  value       = module.eks.cluster_ca_certificate
+}
+
+output "cluster_security_group" {
+  description = "Security group ID created by EKS for the cluster control plane."
+  value       = module.eks.cluster_security_group
+}
+
+output "oidc_provider" {
+  description = "OIDC provider ARN for the EKS cluster, used by future IRSA roles."
+  value       = module.eks.oidc_provider_arn
 }
 
 output "log_group_name" {
-  description = "CloudWatch log group name for data jobs."
-  value       = aws_cloudwatch_log_group.data_jobs.name
+  description = "CloudWatch log group name for the EKS cluster control plane logs."
+  value       = module.eks.log_group_name
 }
 
 output "log_group_arn" {
-  description = "CloudWatch log group ARN for data jobs."
-  value       = aws_cloudwatch_log_group.data_jobs.arn
+  description = "CloudWatch log group ARN for the EKS cluster control plane logs."
+  value       = module.eks.log_group_arn
 }
 
-output "budget_name" {
-  description = "AWS Budget name for monthly cost governance."
-  value       = aws_budgets_budget.monthly.name
-}
-
-output "budget_alert_sns_arn" {
-  description = "SNS topic ARN for budget alerts. Empty string when no alert email is configured."
-  value       = var.budget_alert_email != "" ? aws_sns_topic.budget_alerts[0].arn : ""
+output "resource_arn" {
+  description = "ARN of the primary managed resource (the EKS cluster)."
+  value       = module.eks.cluster_arn
 }

@@ -1,0 +1,31 @@
+# Deployment para invoice-processor.
+# Define el estado deseado: 2 replicas del contenedor FastAPI, administradas
+# mediante un ReplicaSet que el Deployment crea y supervisa internamente.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invoice-processor
+  namespace: default
+  labels:
+    app: invoice-processor
+spec:
+  replicas: 2
+  selector:
+    # Debe coincidir con los labels del template para que el ReplicaSet
+    # sepa que Pods le pertenecen.
+    matchLabels:
+      app: invoice-processor
+  template:
+    metadata:
+      labels:
+        app: invoice-processor
+    spec:
+      containers:
+        - name: invoice-processor
+          # Reemplazar <account_id> y <region> con los valores reales del
+          # repositorio ECR antes de aplicar.
+          image: <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v1
+          # Evita pull innecesario si la imagen ya existe localmente en el nodo.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000

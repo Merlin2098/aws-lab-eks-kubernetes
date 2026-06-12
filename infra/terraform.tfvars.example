@@ -1,11 +1,14 @@
-project_name = "data-platform"
+project_name = "invoice-lab"
 environment  = "dev"
 aws_region   = "us-east-1"
+cluster_name = "invoice-eks-dev"
 owner        = "data-engineering"
 
-artifact_bucket_force_destroy      = true
-enable_artifact_bucket_versioning  = false
+node_instance_type = "t3.medium"
+node_desired_size  = 2
+node_min_size      = 2
+node_max_size      = 3
 
 tags = {
-  CostCenter = "data-platform"
+  CostCenter = "invoice-lab"
 }
