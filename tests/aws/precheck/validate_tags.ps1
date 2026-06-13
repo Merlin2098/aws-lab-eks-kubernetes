@@ -1,6 +1,6 @@
 param(
-  [string]$Project = $env:TF_VAR_project_name ?? "invoice-lab",
-  [string]$Region  = $env:AWS_DEFAULT_REGION ?? "us-east-1"
+  [string]$Project = $(if ($env:TF_VAR_project_name) { $env:TF_VAR_project_name } else { "invoice-lab" }),
+  [string]$Region  = $(if ($env:AWS_DEFAULT_REGION) { $env:AWS_DEFAULT_REGION } else { "us-east-1" })
 )
 
 $required = @("Project", "Environment", "ManagedBy", "Lab", "Owner", "CostCenter")

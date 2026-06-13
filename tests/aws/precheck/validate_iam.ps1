@@ -3,8 +3,8 @@ param(
   [string]$NodeRoleName    = $null
 )
 
-$project = $env:TF_VAR_project_name ?? "invoice-lab"
-$envName = $env:TF_VAR_environment ?? "dev"
+$project = if ($env:TF_VAR_project_name) { $env:TF_VAR_project_name } else { "invoice-lab" }
+$envName = if ($env:TF_VAR_environment) { $env:TF_VAR_environment } else { "dev" }
 $prefix  = "$($project.ToLower())-$($envName.ToLower())"
 
 $clusterRole = if ($ClusterRoleName) { $ClusterRoleName } else { "$prefix-eks-cluster-role" }
@@ -15,7 +15,7 @@ foreach ($roleName in @($clusterRole, $nodeRole)) {
   $role = aws iam get-role --role-name $roleName | ConvertFrom-Json
   if (-not $role) { Write-Error "Role not found: $roleName"; exit 1 }
 
-  $trust = $role.Role.AssumeRolePolicyDocument | ConvertFrom-Json
+  $trust = $role.Role.AssumeRolePolicyDocument
   $services = $trust.Statement.Principal.Service
   Write-Host "  Trust services: $services"
 

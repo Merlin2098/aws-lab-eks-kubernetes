@@ -24,7 +24,7 @@ spec:
         - name: invoice-processor
           # Reemplazar <account_id> y <region> con los valores reales del
           # repositorio ECR antes de aplicar.
-          image: <account_id>.dkr.ecr.<region>.amazonaws.com/invoice-processor:v1
+          image: 184670914470.dkr.ecr.us-east-1.amazonaws.com/invoice-processor:v1
           # Evita pull innecesario si la imagen ya existe localmente en el nodo.
           imagePullPolicy: IfNotPresent
           ports:

@@ -1,5 +1,5 @@
 param(
-  [string]$Region = $env:AWS_DEFAULT_REGION ?? "us-east-1"
+  [string]$Region = $(if ($env:AWS_DEFAULT_REGION) { $env:AWS_DEFAULT_REGION } else { "us-east-1" })
 )
 
 $outputs = terraform -chdir=infra output -json | ConvertFrom-Json
